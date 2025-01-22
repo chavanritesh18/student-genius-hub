@@ -18,6 +18,8 @@ serve(async (req) => {
   try {
     const { question } = await req.json();
 
+    console.log('Received question:', question);
+
     const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
@@ -39,6 +41,12 @@ serve(async (req) => {
     });
 
     const data = await response.json();
+    console.log('Gemini API response:', data);
+
+    if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+      throw new Error('Invalid response from Gemini API');
+    }
+
     const answer = data.candidates[0].content.parts[0].text;
 
     return new Response(JSON.stringify({ answer }), {
