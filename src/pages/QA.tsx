@@ -31,34 +31,33 @@ export default function QA() {
         return;
       }
 
-      const response = await fetch("/api/ask-question", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ question }),
+      // Use Supabase's function invocation instead of fetch
+      const { data, error } = await supabase.functions.invoke('ask-question', {
+        body: { question },
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to get answer");
-      }
+      if (error) throw error;
 
-      const data = await response.json();
-      setAnswer(data.answer);
+      const aiResponse = data.answer;
+      setAnswer(aiResponse);
 
       // Store the Q&A in the database
-      await supabase.from("questions").insert({
-        user_id: session.user.id,
-        title: question.substring(0, 100),
-        content: question,
-        ai_response: data.answer,
-      });
+      const { error: insertError } = await supabase
+        .from('questions')
+        .insert({
+          user_id: session.user.id,
+          title: question.substring(0, 100),
+          content: question,
+          ai_response: aiResponse,
+        });
 
-    } catch (error) {
+      if (insertError) throw insertError;
+
+    } catch (error: any) {
       console.error("Error asking question:", error);
       toast({
         title: "Error",
-        description: "Failed to get answer. Please try again.",
+        description: error.message || "Failed to get answer. Please try again.",
         variant: "destructive",
       });
     } finally {
