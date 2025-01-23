@@ -6,10 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { Download, Presentation, Save } from "lucide-react";
+import { Json } from "@/integrations/supabase/types";
 
 interface Slide {
   id: number;
   content: string;
+  [key: string]: string | number; // Add index signature to make it compatible with Json type
 }
 
 const Presentations = () => {
@@ -48,11 +50,14 @@ const Presentations = () => {
         return;
       }
 
+      // Convert slides to a JSON-compatible format
+      const slidesJson = slides as unknown as Json;
+
       const { error } = await supabase
         .from("presentations")
         .insert({
           title,
-          slides,
+          slides: slidesJson,
           user_id: session.user.id,
         });
 
