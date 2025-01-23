@@ -5,15 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { Code, Play, Save } from "lucide-react";
+import { Code, Play, Save, Wand } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const CodeEditor = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [title, setTitle] = useState("");
   const [code, setCode] = useState("");
   const [language, setLanguage] = useState("javascript");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [description, setDescription] = useState("");
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -46,9 +50,17 @@ const CodeEditor = () => {
 
       if (error) throw error;
       
-      console.log("Code saved successfully");
+      toast({
+        title: "Success",
+        description: "Code saved successfully",
+      });
     } catch (error) {
       console.error("Error saving code:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save code",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -68,6 +80,41 @@ const CodeEditor = () => {
     }
   };
 
+  const handleGenerate = async () => {
+    if (!description) {
+      toast({
+        title: "Error",
+        description: "Please enter a description of the code you want to generate",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setGenerating(true);
+      const { data, error } = await supabase.functions.invoke('generate-code', {
+        body: { description, language },
+      });
+
+      if (error) throw error;
+
+      setCode(data.code);
+      toast({
+        title: "Success",
+        description: "Code generated successfully",
+      });
+    } catch (error) {
+      console.error("Error generating code:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate code",
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto">
@@ -79,6 +126,17 @@ const CodeEditor = () => {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter code snippet title"
+              className="mt-1"
+            />
+          </div>
+
+          <div className="mb-6">
+            <Label htmlFor="description">Description (for AI generation)</Label>
+            <Input
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe the code you want to generate..."
               className="mt-1"
             />
           </div>
@@ -127,6 +185,15 @@ const CodeEditor = () => {
             >
               <Play className="h-4 w-4" />
               Run
+            </Button>
+            <Button
+              onClick={handleGenerate}
+              disabled={generating}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Wand className="h-4 w-4" />
+              Generate with AI
             </Button>
           </div>
 
