@@ -20,6 +20,8 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY is not set')
     }
 
+    console.log('Generating presentation for topic:', topic)
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -31,7 +33,7 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'You are a presentation generator. Generate a presentation with 5 slides. Each slide should have a title and content. Return the response as a JSON array where each object represents a slide with "title" and "content" properties.'
+            content: 'You are a presentation generator. Generate a presentation with 5 slides. For each slide, provide a title and content. Return the response in this exact JSON format: [{"title": "Slide Title", "content": "Slide Content"}, ...]'
           },
           {
             role: 'user',
@@ -41,15 +43,52 @@ serve(async (req) => {
       })
     })
 
+    if (!response.ok) {
+      const errorData = await response.text()
+      console.error('OpenAI API error:', errorData)
+      throw new Error(`OpenAI API error: ${errorData}`)
+    }
+
     const data = await response.json()
-    const slides = JSON.parse(data.choices[0].message.content)
+    console.log('OpenAI response:', JSON.stringify(data))
+
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('Unexpected OpenAI response format:', data)
+      throw new Error('Invalid response format from OpenAI')
+    }
+
+    let slides
+    try {
+      slides = JSON.parse(data.choices[0].message.content)
+      
+      if (!Array.isArray(slides)) {
+        throw new Error('Generated content is not an array')
+      }
+
+      // Validate slide format
+      slides.forEach((slide, index) => {
+        if (!slide.title || !slide.content) {
+          throw new Error(`Invalid slide format at index ${index}`)
+        }
+      })
+    } catch (error) {
+      console.error('Error parsing slides:', error)
+      console.error('Raw content:', data.choices[0].message.content)
+      throw new Error('Failed to parse generated content')
+    }
+
+    console.log('Successfully generated slides:', JSON.stringify(slides))
 
     return new Response(JSON.stringify({ slides }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   } catch (error) {
-    console.error('Error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Error in generate-presentation function:', error)
+    return new Response(
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack 
+      }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
