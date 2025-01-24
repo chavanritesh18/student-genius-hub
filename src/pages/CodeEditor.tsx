@@ -78,14 +78,46 @@ const CodeEditor = () => {
 
       if (error) throw error;
 
-      if (data.stdout) {
-        setOutput(data.stdout);
-      } else if (data.stderr) {
-        setOutput(`Error: ${data.stderr}`);
-      } else if (data.compile_output) {
-        setOutput(`Compilation Error: ${data.compile_output}`);
+      console.log("Compilation response:", data);
+
+      // Handle different status codes from Judge0 API
+      if (data.status) {
+        switch (data.status.id) {
+          case 3: // Accepted
+            setOutput(data.stdout || "Program completed successfully with no output");
+            break;
+          case 4: // Wrong Answer
+            setOutput(data.stdout || "Program produced incorrect output");
+            break;
+          case 5: // Time Limit Exceeded
+            setOutput("Time limit exceeded");
+            break;
+          case 6: // Compilation Error
+            setOutput(`Compilation Error:\n${data.compile_output}`);
+            break;
+          case 7: // Runtime Error (SIGSEGV)
+            setOutput(`Runtime Error:\n${data.stderr}`);
+            break;
+          case 11: // Runtime Error
+            setOutput(`Runtime Error:\n${data.stderr || data.compile_output}`);
+            break;
+          case 1: // In Queue
+          case 2: // Processing
+            setOutput("Code is still processing...");
+            break;
+          default:
+            if (data.stdout) {
+              setOutput(data.stdout);
+            } else if (data.stderr) {
+              setOutput(`Error: ${data.stderr}`);
+            } else if (data.compile_output) {
+              setOutput(`Compilation Error: ${data.compile_output}`);
+            } else {
+              setOutput("No output available");
+            }
+        }
       } else {
-        setOutput("No output");
+        setOutput("Failed to get compilation status");
       }
     } catch (error) {
       console.error("Error compiling code:", error);
@@ -228,7 +260,7 @@ const CodeEditor = () => {
           {output && (
             <div className="mt-6">
               <Label>Output</Label>
-              <pre className="mt-1 p-4 bg-gray-100 rounded-md overflow-x-auto">
+              <pre className="mt-1 p-4 bg-gray-100 rounded-md overflow-x-auto whitespace-pre-wrap font-mono text-sm">
                 {output}
               </pre>
             </div>
