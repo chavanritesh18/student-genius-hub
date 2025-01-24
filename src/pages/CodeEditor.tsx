@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { Code, Play, Save, Wand } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import Editor from "@monaco-editor/react";
 
 const CodeEditor = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const CodeEditor = () => {
   const [loading, setLoading] = useState(false);
   const [description, setDescription] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [compiling, setCompiling] = useState(false);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -68,15 +70,30 @@ const CodeEditor = () => {
 
   const handleRun = async () => {
     try {
-      setLoading(true);
-      // For now, we'll just display the code in the output
-      // In a future implementation, we'll integrate with a code execution API
-      setOutput(code);
+      setCompiling(true);
+      const { data, error } = await supabase.functions.invoke('compile-code', {
+        body: { code, language },
+      });
+
+      if (error) throw error;
+
+      if (data.stdout) {
+        setOutput(data.stdout);
+      } else if (data.stderr) {
+        setOutput(`Error: ${data.stderr}`);
+      } else if (data.compile_output) {
+        setOutput(`Compilation Error: ${data.compile_output}`);
+      }
     } catch (error) {
-      console.error("Error running code:", error);
+      console.error("Error compiling code:", error);
       setOutput("Error executing code");
+      toast({
+        title: "Error",
+        description: "Failed to compile code",
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false);
+      setCompiling(false);
     }
   };
 
@@ -153,19 +170,27 @@ const CodeEditor = () => {
               <option value="python">Python</option>
               <option value="java">Java</option>
               <option value="cpp">C++</option>
+              <option value="c">C</option>
             </select>
           </div>
 
           <div className="mb-6">
             <Label htmlFor="code">Code</Label>
-            <Textarea
-              id="code"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="Write your code here..."
-              className="mt-1 font-mono"
-              rows={10}
-            />
+            <div className="mt-1 border rounded-md overflow-hidden">
+              <Editor
+                height="400px"
+                defaultLanguage={language}
+                value={code}
+                onChange={(value) => setCode(value || '')}
+                theme="vs-dark"
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  lineNumbers: 'on',
+                  automaticLayout: true,
+                }}
+              />
+            </div>
           </div>
 
           <div className="flex gap-4">
@@ -179,12 +204,12 @@ const CodeEditor = () => {
             </Button>
             <Button
               onClick={handleRun}
-              disabled={loading}
+              disabled={compiling}
               variant="secondary"
               className="flex items-center gap-2"
             >
               <Play className="h-4 w-4" />
-              Run
+              {compiling ? 'Compiling...' : 'Run'}
             </Button>
             <Button
               onClick={handleGenerate}
@@ -193,7 +218,7 @@ const CodeEditor = () => {
               className="flex items-center gap-2"
             >
               <Wand className="h-4 w-4" />
-              Generate with AI
+              {generating ? 'Generating...' : 'Generate with AI'}
             </Button>
           </div>
 
