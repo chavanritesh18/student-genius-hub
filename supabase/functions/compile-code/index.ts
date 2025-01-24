@@ -6,23 +6,46 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+async function pollSubmission(token: string, rapidApiKey: string, maxAttempts = 10): Promise<any> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const response = await fetch(`https://judge0-ce.p.rapidapi.com/submissions/${token}?base64_encoded=false`, {
+      headers: {
+        'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com',
+        'X-RapidAPI-Key': rapidApiKey,
+      },
+    });
+
+    const result = await response.json();
+    console.log(`Polling attempt ${i + 1}, status:`, result.status?.id);
+
+    // If we have a final status, return the result
+    if (result.status?.id > 2) {
+      return result;
+    }
+
+    // Wait 1 second before next attempt
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+
+  throw new Error('Compilation timed out');
+}
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
     const { code, language } = await req.json()
+    const rapidApiKey = Deno.env.get('RAPID_API_KEY') || '';
     console.log('Compiling code:', { language })
     
-    // Using Judge0 API for code compilation
-    const response = await fetch('https://judge0-ce.p.rapidapi.com/submissions', {
+    const response = await fetch('https://judge0-ce.p.rapidapi.com/submissions?base64_encoded=false', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com',
-        'X-RapidAPI-Key': Deno.env.get('RAPID_API_KEY') || '',
+        'X-RapidAPI-Key': rapidApiKey,
       },
       body: JSON.stringify({
         source_code: code,
@@ -34,16 +57,12 @@ serve(async (req) => {
     const submissionData = await response.json();
     console.log('Submission created:', submissionData)
     
-    // Get compilation result
-    const resultResponse = await fetch(`https://judge0-ce.p.rapidapi.com/submissions/${submissionData.token}`, {
-      headers: {
-        'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com',
-        'X-RapidAPI-Key': Deno.env.get('RAPID_API_KEY') || '',
-      },
-    });
+    if (!submissionData.token) {
+      throw new Error('Failed to create submission');
+    }
 
-    const result = await resultResponse.json();
-    console.log('Compilation result:', result)
+    const result = await pollSubmission(submissionData.token, rapidApiKey);
+    console.log('Final compilation result:', result)
     
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -65,5 +84,5 @@ function getLanguageId(language: string): number {
     'cpp': 54,
     'c': 50,
   };
-  return languageMap[language] || 71; // Default to Python if language not found
+  return languageMap[language] || 71;
 }
