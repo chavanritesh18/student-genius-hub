@@ -14,6 +14,7 @@ serve(async (req) => {
 
   try {
     const { code, language } = await req.json()
+    console.log('Compiling code:', { language })
     
     // Using Judge0 API for code compilation
     const response = await fetch('https://judge0-ce.p.rapidapi.com/submissions', {
@@ -31,6 +32,7 @@ serve(async (req) => {
     });
 
     const submissionData = await response.json();
+    console.log('Submission created:', submissionData)
     
     // Get compilation result
     const resultResponse = await fetch(`https://judge0-ce.p.rapidapi.com/submissions/${submissionData.token}`, {
@@ -41,6 +43,7 @@ serve(async (req) => {
     });
 
     const result = await resultResponse.json();
+    console.log('Compilation result:', result)
     
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

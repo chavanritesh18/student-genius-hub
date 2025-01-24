@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { Code, Play, Save, Wand } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -71,6 +70,8 @@ const CodeEditor = () => {
   const handleRun = async () => {
     try {
       setCompiling(true);
+      setOutput("Compiling...");
+      
       const { data, error } = await supabase.functions.invoke('compile-code', {
         body: { code, language },
       });
@@ -83,6 +84,8 @@ const CodeEditor = () => {
         setOutput(`Error: ${data.stderr}`);
       } else if (data.compile_output) {
         setOutput(`Compilation Error: ${data.compile_output}`);
+      } else {
+        setOutput("No output");
       }
     } catch (error) {
       console.error("Error compiling code:", error);

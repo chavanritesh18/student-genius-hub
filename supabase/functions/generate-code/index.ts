@@ -14,37 +14,39 @@ serve(async (req) => {
 
   try {
     const { description, language } = await req.json()
-    const openAiKey = Deno.env.get('OPENAI_API_KEY')
+    const apiKey = Deno.env.get('GEMINI_API_KEY')
 
-    if (!openAiKey) {
-      throw new Error('OPENAI_API_KEY is not set')
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY is not set')
     }
 
     console.log('Generating code for:', { description, language })
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const prompt = `Generate ${language} code for the following description: ${description}. Return only the code, no explanations.`
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAiKey}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a code generator. Generate clean, well-commented code in ${language}. Return only the code, no explanations.`
-          },
-          {
-            role: 'user',
-            content: description
-          }
-        ]
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
       })
     })
 
     const data = await response.json()
-    const generatedCode = data.choices[0].message.content
+    console.log('Gemini API response:', data)
+
+    let generatedCode = ''
+    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+      generatedCode = data.candidates[0].content.parts[0].text
+    } else {
+      throw new Error('Failed to generate code')
+    }
 
     console.log('Code generated successfully')
 
