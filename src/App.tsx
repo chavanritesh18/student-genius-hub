@@ -4,6 +4,7 @@ import Auth from "./pages/Auth";
 import QA from "./pages/QA";
 import Presentations from "./pages/Presentations";
 import CodeEditor from "./pages/CodeEditor";
+import Subjects from "./pages/Subjects";
 import { Toaster } from "@/components/ui/toaster";
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
         <Route path="/qa" element={<QA />} />
         <Route path="/presentations" element={<Presentations />} />
         <Route path="/code-editor" element={<CodeEditor />} />
+        <Route path="/subjects" element={<Subjects />} />
       </Routes>
       <Toaster />
     </Router>
